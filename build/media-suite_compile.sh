@@ -2837,7 +2837,7 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
 
     _check=()
     ! mpv_disabled cplayer && _check+=(bin-video/mpv.{exe,com})
-    mpv_enabled libmpv-shared && _check+=(bin-video/mpv-2.dll)
+    # mpv_enabled libmpv-shared && _check+=(bin-video/mpv-2.dll)
     mpv_enabled libmpv-static && _check+=(libmpv.a)
     _deps=(lib{ass,avcodec,vapoursynth,shaderc_combined,spirv-cross,placebo}.a "$MINGW_PREFIX"/lib/libuchardet.a)
     if do_vcs "$SOURCE_REPO_MPV"; then
@@ -2887,6 +2887,9 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
 
         # Disable tests and fuzzers
         MPV_SETUP_FEATURES+=("-Dtests=false" "-Dfuzzers=false")
+
+        # Currently vulkan causes some SEGV as time of writing.
+        MPV_SETUP_FEATURES+=("-Dvulkan=disabled")
 
         # Prepare flags
         # Notes: This is a workaround because in some special occasions, expanding the array values directly
