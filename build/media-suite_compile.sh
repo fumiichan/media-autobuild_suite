@@ -2835,7 +2835,6 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
 
     _check=()
     ! mpv_disabled cplayer && _check+=(bin-video/mpv.{exe,com})
-    # mpv_enabled libmpv-shared && _check+=(bin-video/mpv-2.dll)
     mpv_enabled libmpv-static && _check+=(libmpv.a)
     _deps=(lib{ass,avcodec,vapoursynth,shaderc_combined,spirv-cross,placebo}.a "$MINGW_PREFIX"/lib/libuchardet.a)
     if do_vcs "$SOURCE_REPO_MPV"; then
@@ -2851,6 +2850,7 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
             echo "windres = 'x86_64-w64-mingw32-windres'" >> cross-file.txt
             echo "strip = 'x86_64-w64-mingw32-strip'" >> cross-file.txt
             echo "exe_wrapper = 'wine64'" >> cross-file.txt
+            echo "pkg-config = 'pkgconf.exe'" >> cross-file.txt
             echo "" >> cross-file.txt
             echo "[host_machine]" >> cross-file.txt
             echo "system = 'windows'" >> cross-file.txt
@@ -2886,8 +2886,9 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
         # Disable tests and fuzzers
         MPV_SETUP_FEATURES+=("-Dtests=false" "-Dfuzzers=false")
 
-        # Currently vulkan causes some SEGV as time of writing.
-        MPV_SETUP_FEATURES+=("-Dvulkan=disabled")
+        # dvdnav    : disabling for now because its breaking on 0.40.0
+        # javascript: -lmujs fails to be detected, i wonder why.
+        MPV_SETUP_FEATURES+=("-Djavascript=disabled" "-Ddvdnav=disabled")
 
         # Prepare flags
         # Notes: This is a workaround because in some special occasions, expanding the array values directly
@@ -2900,19 +2901,16 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
         # Remarks: for some reason meson no longer reads CFLAGS and LDFLAGS from env. Instead you need to specify
         #          them inside -Dc_args, -Dc_link_args and -Dcpp_link_args instead.
         extra_script pre configure
-        PKG_CONFIG="pkgconf --keep-system-libs --keep-system-cflags" \
-            CC=${CC/ccache /}.bat \
-            CXX=${CXX/ccache /}.bat \
-            log "meson" meson setup \
-                --default-library=static \
-                --buildtype=release \
-                -Dc_args="${MPV_SETUP_FINAL_CFLAGS}" \
-                -Dc_link_args="${MPV_SETUP_FINAL_LDFLAGS}" \
-                -Dcpp_link_args="${MPV_SETUP_FINAL_CPPFLAGS}" \
-                --prefix="$LOCALDESTDIR" \
-                --bindir="bin-video" \
-                --backend=ninja \
-                --cross-file cross-file.txt ${MPV_SETUP_FEATURES[@]} build
+        log "meson" meson setup \
+            --default-library=static \
+            --buildtype=release \
+            -Dc_args="${MPV_SETUP_FINAL_CFLAGS}" \
+            -Dc_link_args="${MPV_SETUP_FINAL_LDFLAGS}" \
+            -Dcpp_link_args="${MPV_SETUP_FINAL_CPPFLAGS}" \
+            --prefix="$LOCALDESTDIR" \
+            --bindir="bin-video" \
+            --backend=ninja \
+            --cross-file cross-file.txt ${MPV_SETUP_FEATURES[@]} build
         extra_script post configure
 
         # Build
