@@ -67,7 +67,7 @@
 --enable-libsrt
 --enable-libgsm
 --enable-libvmaf
---enable-libsvtav1
+#--enable-libsvtav1
 
 # Full
 --enable-chromaprint
@@ -81,8 +81,8 @@
 --enable-libfribidi
 --enable-libgme
 --enable-libilbc
---enable-libsvthevc
---enable-libsvtvp9
+#--enable-libsvthevc
+#--enable-libsvtvp9
 --enable-libkvazaar
 --enable-libmodplug
 --enable-librist
