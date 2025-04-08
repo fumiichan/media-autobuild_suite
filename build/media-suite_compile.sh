@@ -2282,9 +2282,38 @@ if { { [[ $mpv != n ]] && ! mpv_disabled libplacebo; } ||
      { [[ $ffmpeg != no ]] && enabled libplacebo; } } &&
     do_vcs "$SOURCE_REPO_SPIRV_CROSS"; then
     do_uninstall include/spirv_cross "${_check[@]}" spirv-cross-c-shared.pc libspirv-cross-c-shared.a
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/SPIRV-Cross/0001-add-a-basic-Meson-build-system-for-use-as-a-subproje.patch" am
-    sed -i 's/0.13.0/0.48.0/' meson.build
-    do_mesoninstall
+
+    # Notes: mpv >= 0.39.0 won't detect spirv-cross-shared during meson check. Making sure that
+    #        we compile it with cmake with -DSPIRV_CROSS_SHARED=ON and we put the resulting binaries
+    #        in bin-video instead because mpv won't run without it.
+
+    # Clean up
+    rm -rf build
+
+    # Enter build directory
+    mkdir build && cd_safe build
+
+    # Prepare cmake
+    extra_script pre configure
+    log "setup" cmake .. -G Ninja \
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+        -DSPIRV_CROSS_SHARED=ON \
+        -DCMAKE_INSTALL_PREFIX="$LOCALDESTDIR" \
+        -DUNIX=on \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_BINDIR="$LOCALDESTDIR/bin-video"
+    extra_script post configure
+
+    # Build
+    extra_script pre build
+    log "build" ninja
+    extra_script post build
+
+    # Install
+    extra_script pre install
+    log "install" ninja install
+    extra_script post install
+
     do_checkIfExist
 fi
 
