@@ -141,9 +141,9 @@ if [[ ! -z $_reenable_av1an ]] && [[ $bits = 64bit ]]; then
 fi
 
 if [[ $packing = y &&
-    ! "$(/opt/bin/upx -V 2> /dev/null | head -1)" = "upx 4.2.4" ]] &&
-    do_wget -h 2e90ebda45b29217126d8e8ee4d0863bd9705a13adcca3ce07b7d19df55ca355 \
-        "https://github.com/upx/upx/releases/download/v4.2.4/upx-4.2.4-win32.zip"; then
+    ! "$(/opt/bin/upx -V 2> /dev/null | head -1)" = "upx 5.0.0" ]] &&
+    do_wget -h 8c34b9cec2c225bf71f43cf2b788043d0d203d23edb54f649fbec16f34938d80 \
+        "https://github.com/upx/upx/releases/download/v5.0.0/upx-5.0.0-win32.zip"; then
     do_install upx.exe /opt/bin/upx.exe
 fi
 
@@ -529,9 +529,9 @@ if [[ $mediainfo = y || $bmx = y || $curl != n ]]; then
     _deps=("$MINGW_PREFIX/lib/libunistring.a")
     _check=(libidn2.{{,l}a,pc} idn2.h)
     [[ $standalone == y ]] && _check+=(bin-global/idn2.exe)
-    if do_pkgConfig "libidn2 = 2.3.7" &&
-        do_wget -h 4c21a791b610b9519b9d0e12b8097bf2f359b12f8dd92647611a929e6bfd7d64 \
-        "https://ftp.gnu.org/gnu/libidn/libidn2-2.3.7.tar.gz"; then
+    if do_pkgConfig "libidn2 = 2.3.8" &&
+        do_wget -h f557911bf6171621e1f72ff35f5b1825bb35b52ed45325dcdee931e5d3c0787a \
+        "https://ftp.gnu.org/gnu/libidn/libidn2-2.3.8.tar.gz"; then
         do_uninstall "${_check[@]}"
         do_pacman_install gtk-doc
         [[ $standalone == y ]] || sed -ri 's|(bin_PROGRAMS = ).*|\1|g' src/Makefile.am
@@ -569,8 +569,6 @@ if [[ $mediainfo = y || $bmx = y || $curl != n || $cyanrip = y ]]; then
     [[ $standalone = y || $curl != n ]] && _check+=(bin-global/curl.exe)
     if do_vcs "$SOURCE_REPO_CURL"; then
         do_uninstall include/curl bin-global/curl-config "${_check[@]}"
-        [[ $standalone = y || $curl != n ]] ||
-            sed -ri "s;(^SUBDIRS = lib) src (include) scripts;\1 \2;" Makefile.in
         extra_opts=()
         case $curl in
         libressl|openssl)
@@ -680,11 +678,11 @@ if [[ $jpegxl = y ]] || { [[ $ffmpeg != no ]] && enabled libjxl; }; then
     _check=(libjxl{{,_threads}.a,.pc} jxl/decode.h)
     [[ $jpegxl = y ]] && _check+=(bin-global/{{c,d}jxl,{c,d}jpegli,jxlinfo}.exe)
     if do_vcs "$SOURCE_REPO_LIBJXL"; then
+        do_git_submodule
         do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libjxl/0001-brotli-link-enc-before-common.patch" am
         do_uninstall "${_check[@]}" include/jxl
         do_pacman_install asciidoc
         extracommands=()
-        log -q "git.submodule" git submodule update --init --recursive
         [[ $jpegxl = y ]] || extracommands=("-DJPEGXL_ENABLE_TOOLS=OFF")
         CXXFLAGS+=" -DJXL_CMS_STATIC_DEFINE -DJXL_STATIC_DEFINE -DJXL_THREADS_STATIC_DEFINE" \
             do_cmakeinstall global -D{BUILD_TESTING,JPEGXL_ENABLE_{BENCHMARK,DOXYGEN,MANPAGES,OPENEXR,SKCMS,EXAMPLES}}=OFF \
@@ -786,7 +784,7 @@ fi
 _check=(zimg{.h,++.hpp} libzimg.{,l}a zimg.pc)
 if [[ $ffmpeg != no ]] && enabled libzimg &&
     do_vcs "$SOURCE_REPO_ZIMG"; then
-    log -q "git.submodule" git submodule update --init --recursive
+    do_git_submodule
     do_uninstall "${_check[@]}"
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/zimg/0001-libm_wrapper-define-__CRT__NO_INLINE-before-math.h.patch" am
     do_autoreconf
@@ -815,8 +813,8 @@ fi
 _check=(ilbc.h libilbc.{a,pc})
 if [[ $ffmpeg != no ]] && enabled libilbc &&
     do_vcs "$SOURCE_REPO_LIBILBC"; then
+    do_git_submodule
     do_uninstall "${_check[@]}"
-    log -q "git.submodule" git submodule update --init --recursive
     do_cmakeinstall -DUNIX=OFF
     do_checkIfExist
 fi
@@ -929,7 +927,7 @@ _check=(bin-audio/ogg{enc,dec}.exe)
 _deps=(ogg.pc vorbis.pc)
 if [[ $standalone = y ]] && enabled libvorbis &&
     do_vcs "$SOURCE_REPO_VORBIS_TOOLS"; then
-    do_patch "https://github.com/xiph/vorbis-tools/pull/39.patch" am
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vorbis-tools/0001-utf8-add-empty-convert_free_charset-for-Windows.patch" am
     do_autoreconf
     do_uninstall "${_check[@]}"
     extracommands=()
@@ -1166,7 +1164,8 @@ if { { [[ $ffmpeg != no ]] &&
     do_vcs "$SOURCE_REPO_OPENAL"; then
     do_uninstall "${_check[@]}"
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/openal-soft/0001-CMake-Fix-issues-for-mingw-w64.patch" am
-    do_cmakeinstall -DLIBTYPE=STATIC -DALSOFT_UTILS=OFF -DALSOFT_EXAMPLES=OFF
+    CC=${CC/ccache /}.bat CXX=${CXX/ccache /}.bat \
+        do_cmakeinstall -DLIBTYPE=STATIC -DALSOFT_UTILS=OFF -DALSOFT_EXAMPLES=OFF
     sed -i 's/Libs.private.*/& -luuid -lole32/' "$LOCALDESTDIR/lib/pkgconfig/openal.pc" # uuid is for FOLDERID_* stuff
     do_checkIfExist
     unset _mingw_patches
@@ -1461,7 +1460,7 @@ fi
 _check=(libbluray.{{,l}a,pc})
 if { { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; } &&
     do_vcs "$SOURCE_REPO_LIBBLURAY"; then
-    [[ -f contrib/libudfread/.git ]] || log git.submodule git submodule update --init
+    [[ -f contrib/libudfread/.git ]] || do_git_submodule
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libbluray/0001-dec-prefix-with-libbluray-for-now.patch" am
     do_autoreconf
     do_uninstall include/libbluray share/java "${_check[@]}"
@@ -2005,7 +2004,7 @@ _vapoursynth_install() {
         return 1
     fi
     do_pacman_install tools-git
-    _python_ver=3.12.9
+    _python_ver=3.12.10
     _python_lib=python312
     _vsver=70
     _check=("lib$_python_lib.a")
@@ -2356,11 +2355,11 @@ _deps=(lib{vulkan,shaderc_combined}.a spirv-cross.pc shaderc/shaderc.h)
 if { { [[ $mpv != n ]]  && ! mpv_disabled libplacebo; } ||
      { [[ $ffmpeg != no ]] && enabled libplacebo; } } &&
     do_vcs "$SOURCE_REPO_LIBPLACEBO"; then
+    do_git_submodule
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libplacebo/0001-meson-use-shaderc_combined.patch" am
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libplacebo/0002-spirv-cross-use-spirv-cross-instead-of-c-shared.patch" am
     do_pacman_install python-{mako,setuptools}
     do_uninstall "${_check[@]}"
-    log -q "git.submodule" git submodule update --init --recursive
     do_mesoninstall -Dvulkan-registry="$LOCALDESTDIR/share/vulkan/registry/vk.xml" -Ddemos=false -Dd3d11=enabled
     do_checkIfExist
 fi
@@ -3232,8 +3231,8 @@ EOF
 
     _check=(libshout.{,l}a shout.pc shout/shout.h)
     if do_vcs "https://gitlab.xiph.org/xiph/icecast-libshout.git" libshout; then
+        do_git_submodule
         do_uninstall "${_check[@]}"
-        log -q "git.submodule" git submodule update --init
         do_autoreconf
         CFLAGS+=" -include ws2tcpip.h" do_separate_confmakeinstall --disable-examples LIBS="$($PKG_CONFIG --libs openssl)"
         do_checkIfExist
