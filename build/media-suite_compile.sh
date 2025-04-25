@@ -2273,12 +2273,12 @@ if [[ $exitearly = EE5 ]]; then
     return
 fi
 
-_check=(spirv_cross/spirv_cross_c.h spirv-cross.pc libspirv-cross.a)
+_check=(spirv_cross/spirv_cross_c.h spirv-cross-c-shared.pc spirv-cross.pc libspirv-cross-c-shared.dll.a libspirv-cross.a)
 if { { [[ $mpv != n ]] && ! mpv_disabled libplacebo; } ||
      { [[ $mpv != n ]] && ! mpv_disabled spirv-cross; } ||
      { [[ $ffmpeg != no ]] && enabled libplacebo; } } &&
     do_vcs "$SOURCE_REPO_SPIRV_CROSS"; then
-    do_uninstall include/spirv_cross "${_check[@]}" spirv-cross-c-shared.pc libspirv-cross-c-shared.a
+    do_uninstall include/spirv_cross "${_check[@]}" spirv-cross-c-shared.pc spirv-cross.pc libspirv-cross-c-shared.dll.a libspirv-cross.a
 
     # Notes: mpv >= 0.39.0 won't detect spirv-cross-shared during meson check. Making sure that
     #        we compile it with cmake with -DSPIRV_CROSS_SHARED=ON and we put the resulting binaries
@@ -2286,6 +2286,12 @@ if { { [[ $mpv != n ]] && ! mpv_disabled libplacebo; } ||
 
     # Clean up
     rm -rf build
+
+    # Build external dependencies
+    if ! [[ -d external ]]; then
+        log "pulling external dependencies" ./checkout_glslang_spirv_tools.sh
+        log "building external dependencies" ./build_glslang_spirv_tools.sh
+    fi
 
     # Enter build directory
     mkdir build && cd_safe build
@@ -2310,6 +2316,13 @@ if { { [[ $mpv != n ]] && ! mpv_disabled libplacebo; } ||
     extra_script pre install
     log "install" ninja install
     extra_script post install
+
+    # Bail out from the build folder to rebuild just spirv-cross
+    cd_safe ..
+ 
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/SPIRV-Cross/0001-add-a-basic-Meson-build-system-for-use-as-a-subproje.patch" am
+    sed -i 's/0.13.0/0.48.0/' meson.build
+    do_mesoninstall
 
     do_checkIfExist
 fi
