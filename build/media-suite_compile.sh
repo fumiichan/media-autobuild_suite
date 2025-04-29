@@ -112,7 +112,7 @@ do_simple_print -p '\n\t'"${orange}Starting $bits compilation of all tools$reset
 cd_safe "$LOCALBUILDDIR"
 
 do_getFFmpegConfig "$license"
-do_getMpvConfig
+declare -A MPV_OPTS="($(do_getMpvConfig))"
 
 do_fix_pkgconfig_abspaths
 do_clean_old_builds
@@ -403,7 +403,6 @@ if [[ $mplayer = y || $mpv = y ]] ||
     fi
     if enabled_any {lib,}fontconfig &&
         do_vcs "$SOURCE_REPO_FONTCONFIG"; then
-        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/fontconfig/0001-meson-change-default_library-to-default_both_librari.patch" am
         do_uninstall include/fontconfig "${_check[@]}"
         do_pacman_install gperf
         extracommands=()
@@ -1108,7 +1107,7 @@ if [[ $ffmpeg != no ]] && enabled libopenmpt &&
     do_vcs "$SOURCE_REPO_LIBOPENMPT"; then
     do_uninstall include/libopenmpt "${_check[@]}"
     mkdir bin 2> /dev/null
-    extracommands=("CONFIG=mingw64-win${bits%bit}" "AR=ar" "STATIC_LIB=1" "EXAMPLES=0" "OPENMPT123=0"
+    extracommands=("CONFIG=mingw64-win${bits%bit}" "AR=ar" "STATIC_LIB=1" "SHARED_LIB=0" "EXAMPLES=0" "OPENMPT123=0"
         "TEST=0" "OS=" "CC=$CC" "CXX=$CXX" "MINGW_COMPILER=${CC##* }")
     log clean make clean "${extracommands[@]}"
     do_makeinstall PREFIX="$LOCALDESTDIR" "${extracommands[@]}"
@@ -2166,7 +2165,6 @@ _check=(bin-video/vvenc{,FF}app.exe
 if [[ $bits = 64bit && $vvenc = y ]] ||
     { [[ $ffmpeg != no && $bits = 64bit ]] && enabled libvvenc; } &&
     do_vcs "$SOURCE_REPO_LIBVVENC"; then
-    do_patch "https://github.com/fraunhoferhhi/vvenc/pull/522.patch" am
     do_pacman_install nlohmann-json
     do_uninstall include/vvenc lib/cmake/vvenc "${_check[@]}"
     do_cmakeinstall video -DVVENC_ENABLE_LINK_TIME_OPT=OFF -DVVENC_INSTALL_FULLFEATURE_APP=ON -DVVENC_ENABLE_THIRDPARTY_JSON=SYSTEM
@@ -2274,8 +2272,7 @@ if [[ $exitearly = EE5 ]]; then
 fi
 
 _check=(spirv_cross/spirv_cross_c.h spirv-cross-c-shared.pc spirv-cross.pc libspirv-cross-c-shared.dll.a libspirv-cross.a)
-if { { [[ $mpv != n ]] && ! mpv_disabled libplacebo; } ||
-     { [[ $mpv != n ]] && ! mpv_disabled spirv-cross; } ||
+if { [[ $mpv != n ]] ||
      { [[ $ffmpeg != no ]] && enabled libplacebo; } } &&
     do_vcs "$SOURCE_REPO_SPIRV_CROSS"; then
     do_uninstall include/spirv_cross "${_check[@]}" spirv-cross-c-shared.pc spirv-cross.pc libspirv-cross-c-shared.dll.a libspirv-cross.a
@@ -2329,7 +2326,7 @@ fi
 
 _check=(lib{glslang,OSDependent,SPVRemapper}.a
         libSPIRV{,-Tools{,-opt,-link,-reduce}}.a glslang/SPIRV/GlslangToSpv.h)
-if { { [[ $mpv != n ]]  && ! mpv_disabled libplacebo; } ||
+if { [[ $mpv != n ]] ||
      { [[ $ffmpeg != no ]] && enabled_any libplacebo libglslang; } } &&
     do_vcs "$SOURCE_REPO_GLSLANG"; then
     do_uninstall libHLSL.a "${_check[@]}"
@@ -2339,7 +2336,7 @@ if { { [[ $mpv != n ]]  && ! mpv_disabled libplacebo; } ||
 fi
 
 _check=(shaderc/shaderc.h libshaderc_combined.a)
-if { { [[ $mpv != n ]]  && ! mpv_disabled libplacebo; } ||
+if { [[ $mpv != n ]] ||
      { [[ $ffmpeg != no ]] && enabled libplacebo; } } ||
      ! mpv_disabled shaderc &&
     do_vcs "$SOURCE_REPO_SHADERC"; then
@@ -2363,7 +2360,7 @@ file_installed -s shaderc_static.pc &&
 
 _check=(libplacebo.{a,pc})
 _deps=(lib{vulkan,shaderc_combined}.a spirv-cross.pc shaderc/shaderc.h)
-if { { [[ $mpv != n ]]  && ! mpv_disabled libplacebo; } ||
+if { [[ $mpv != n ]] ||
      { [[ $ffmpeg != no ]] && enabled libplacebo; } } &&
     do_vcs "$SOURCE_REPO_LIBPLACEBO"; then
     do_git_submodule
@@ -2795,7 +2792,7 @@ if [[ $mplayer = y ]] && check_mplayer_updates; then
 fi
 
 if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; then
-    if ! mpv_disabled lua && opt_exists MPV_OPTS "--lua=5.1"; then
+    if [[ ${MPV_OPTS[lua]} == 5.1 ]]; then
         do_pacman_install lua51
     elif ! mpv_disabled lua &&
         _check=(bin-global/luajit.exe libluajit-5.1.a luajit.pc luajit-2.1/lua.h) &&
@@ -2872,97 +2869,27 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
         do_checkIfExist
     fi
 
-    _check=()
+    _check=(libmpv.a mpv.pc)
     ! mpv_disabled cplayer && _check+=(bin-video/mpv.{exe,com})
-    mpv_enabled libmpv-static && _check+=(libmpv.a)
     _deps=(lib{ass,avcodec,vapoursynth,shaderc_combined,spirv-cross,placebo}.a "$MINGW_PREFIX"/lib/libuchardet.a)
     if do_vcs "$SOURCE_REPO_MPV"; then
-        # Clean build
-        do_uninstall bin-video/mpv{.exe,-2.dll}.debug "${_check[@]}"
-        
-        # Define cross-file.txt
-        if ! [[ -f cross-file.txt ]]; then
-            echo "[binaries]" > cross-file.txt
-            echo "c = 'x86_64-w64-mingw32-gcc'" >> cross-file.txt
-            echo "cpp = 'x86_64-w64-mingw32-g++'" >> cross-file.txt
-            echo "ar = 'ar'" >> cross-file.txt
-            echo "windres = 'x86_64-w64-mingw32-windres'" >> cross-file.txt
-            echo "strip = 'x86_64-w64-mingw32-strip'" >> cross-file.txt
-            echo "exe_wrapper = 'wine64'" >> cross-file.txt
-            echo "pkg-config = 'pkgconf.exe'" >> cross-file.txt
-            echo "" >> cross-file.txt
-            echo "[host_machine]" >> cross-file.txt
-            echo "system = 'windows'" >> cross-file.txt
-            echo "cpu_family = 'x86_64'" >> cross-file.txt
-            echo "cpu = 'x86_64'" >> cross-file.txt
-            echo "endian = 'little'" >> cross-file.txt
+        do_patch "https://github.com/1480c1/mpv/commit/e26713d7b0e4a096c2039a263532ce818cc8043e.patch" am
+        do_uninstall share/man/man1/mpv.1 include/mpv share/doc/mpv etc/mpv "${_check[@]}"
+        hide_conflicting_libs
+        create_ab_pkgconfig
+        if ! mpv_disabled manpage-build || mpv_enabled html-build; then
+            do_pacman_install python-docutils
         fi
+        mpv_enabled pdf-build && do_pacman_install python-rst2pdf
 
-        MPV_SETUP_CFLAGS=()
-        MPV_SETUP_LDFLAGS=("-L$LOCALDESTDIR/lib" "-L$MINGW_PREFIX/lib")
-        MPV_SETUP_CPPFLAGS=()
+        [[ -f mpv_extra.sh ]] && source mpv_extra.sh
 
-        # Note: features are autodetected by meson, no need to define them here.
-        # TODO: allow flags from mpv_options.txt to be inserted here
-        MPV_SETUP_FEATURES=()
-
-        # Check if static build
-        if files_exist libavutil.a; then
-            MPV_SETUP_LDFLAGS+=("-static")
-            MPV_SETUP_CPPFLAGS+=("-static")
-            MPV_SETUP_FEATURES+=("-Dlibmpv=true")
-        fi
-
-        # Check if CUDA or libnpp is enabled
-        if enabled libnpp && [[ -n "$CUDA_PATH" ]]; then
-            MPV_SETUP_CFLAGS+=("-I$(cygpath -sm "$CUDA_PATH")/include")
-            MPV_SETUP_LDFLAGS+=("-L$(cygpath -sm "$CUDA_PATH")/lib/x64")
-        fi
-
-        # Disable docs generation
-        MPV_SETUP_FEATURES+=("-Dpdf-build=disabled" "-Dmanpage-build=disabled" "-Dhtml-build=disabled")
-
-        # Disable tests and fuzzers
-        MPV_SETUP_FEATURES+=("-Dtests=false" "-Dfuzzers=false")
-
-        # dvdnav    : disabling for now because its breaking on 0.40.0
-        # javascript: -lmujs fails to be detected, i wonder why.
-        MPV_SETUP_FEATURES+=("-Djavascript=disabled" "-Ddvdnav=disabled")
-
-        # Prepare flags
-        # Notes: This is a workaround because in some special occasions, expanding the array values directly
-        #        to meson, it somehow breaks the setup process.
-        MPV_SETUP_FINAL_CFLAGS=$(printf " %s" "${MPV_SETUP_CFLAGS[@]}")
-        MPV_SETUP_FINAL_LDFLAGS=$(printf " %s" "${MPV_SETUP_LDFLAGS[@]}")
-        MPV_SETUP_FINAL_CPPFLAGS=$(printf " %s" "${MPV_SETUP_CPPFLAGS[@]}")
-
-        # Setup
-        # Remarks: for some reason meson no longer reads CFLAGS and LDFLAGS from env. Instead you need to specify
-        #          them inside -Dc_args, -Dc_link_args and -Dcpp_link_args instead.
-        extra_script pre configure
-        log "meson" meson setup \
-            --default-library=static \
-            --buildtype=release \
-            -Dc_args="${MPV_SETUP_FINAL_CFLAGS}" \
-            -Dc_link_args="${MPV_SETUP_FINAL_LDFLAGS}" \
-            -Dcpp_link_args="${MPV_SETUP_FINAL_CPPFLAGS}" \
-            --prefix="$LOCALDESTDIR" \
-            --bindir="bin-video" \
-            --backend=ninja \
-            --cross-file cross-file.txt ${MPV_SETUP_FEATURES[@]} build
-        extra_script post configure
-
-        # Build
-        extra_script pre build
-        log "build" meson compile -C build
-        extra_script post build
-
-        # Install
-        extra_script pre install
-        cd_safe build
-        log "install" meson install
-        extra_script post install
-
+        mapfile -t MPV_ARGS < <(mpv_build_args)
+        do_mesoninstall video "${MPV_ARGS[@]}"
+        unset MPV_ARGS
+        hide_conflicting_libs -R
+        files_exist share/man/man1/mpv.1 && dos2unix -q "$LOCALDESTDIR"/share/man/man1/mpv.1
+        create_winpty_exe mpv "$LOCALDESTDIR"/bin-video/ "export _started_from_console=yes"
         do_checkIfExist
     fi
 fi
@@ -3340,7 +3267,9 @@ _check=(bin-video/ffmbc.exe)
 if [[ $ffmbc = y ]] && do_vcs "$SOURCE_REPO_FFMBC"; then
     _notrequired=true
     create_build_dir
-    log configure ../configure --target-os=mingw32 --enable-gpl \
+    # Too many errors with GCC 15 due to really old code.
+    CFLAGS+=" -Wno-error=incompatible-pointer-types" \
+        log configure ../configure --target-os=mingw32 --enable-gpl \
         --disable-{dxva2,ffprobe} --extra-cflags=-DNO_DSHOW_STRSAFE \
         --cc="$CC" --ld="$CXX"
     do_make
