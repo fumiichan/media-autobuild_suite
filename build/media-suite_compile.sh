@@ -434,6 +434,7 @@ if [[ $mplayer = y || $mpv = y ]] ||
     [[ $standalone = y ]] && _check+=(bin-video/fribidi.exe)
     [[ $ffmpeg = sharedlibs ]] && _check+=(bin-video/libfribidi-0.dll libfribidi.dll.a)
     if do_vcs "$SOURCE_REPO_FRIBIDI"; then
+        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/fribidi/0001-bin-only-use-vendored-getopt-if-not-provided.patch" am
         extracommands=("-Ddocs=false" "-Dtests=false")
         [[ $standalone = n ]] && extracommands+=("-Dbin=false")
         [[ $ffmpeg = sharedlibs ]] && extracommands+=(--default-library=both)
@@ -1853,6 +1854,7 @@ _check=(x265{,_config}.h libx265.a x265.pc)
 [[ $standalone = y || $av1an != n ]] && _check+=(bin-video/x265.exe)
 if [[ ! $x265 = n ]] && do_vcs "$SOURCE_REPO_X265"; then
     grep_and_sed CMAKE_CXX_IMPLICIT_LINK_LIBRARIES source/CMakeLists.txt 's|\$\{CMAKE_CXX_IMPLICIT_LINK_LIBRARIES\}||g'
+    grep_or_sed cstdint source/dynamicHDR10/json11/json11.cpp "/cstdlib/ i\#include <cstdint>"
     do_uninstall libx265{_main10,_main12}.a bin-video/libx265_main{10,12}.dll "${_check[@]}"
     [[ $bits = 32bit ]] && assembly=-DENABLE_ASSEMBLY=OFF
     [[ $x265 = d ]] && xpsupport=-DWINXP_SUPPORT=ON
