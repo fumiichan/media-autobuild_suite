@@ -116,3 +116,6 @@
 --enable-cuda-nvcc
 --enable-libnpp
 --enable-libopenh264
+
+# Core Audio Toolbox
+--enable-audiotoolbox
