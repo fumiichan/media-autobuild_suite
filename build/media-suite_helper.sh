@@ -955,16 +955,6 @@ do_changeFFmpegConfig() {
     eval "$(sed -n '/EXTERNAL_LIBRARY_NONFREE_LIST=/,/^"/p' "$config_script" | tr -s '\n' ' ')"
     eval "$(sed -n '/EXTERNAL_LIBRARY_VERSION3_LIST=/,/^"/p' "$config_script" | tr -s '\n' ' ')"
 
-    # handle gpl libs
-    local gpl
-    read -ra gpl <<< "${EXTERNAL_LIBRARY_GPL_LIST//_/-} gpl"
-    if [[ $license == gpl* || $license == nonfree ]] &&
-        { enabled_any "${gpl[@]}" || ! disabled postproc; }; then
-        do_addOption --enable-gpl
-    else
-        do_removeOptions "${gpl[*]/#/--enable-} --enable-postproc --enable-gpl"
-    fi
-
     # handle (l)gplv3 libs
     local version3
     read -ra version3 <<< "${EXTERNAL_LIBRARY_VERSION3_LIST//_/-}"
@@ -1278,6 +1268,9 @@ do_patch() {
         [[ ${patch%/*} != "$PWD" ]] && cp -f "$patch" "$patchName" > /dev/null 2>&1
     fi
 
+    [[ -f "$(get_first_subdir -f)/do_not_patch" ]] &&
+        return
+
     if [[ -f $patchName ]]; then
         if $am; then
             git apply -3 --check --ignore-space-change --ignore-whitespace "$patchName" > /dev/null 2>&1 &&
@@ -1522,11 +1515,13 @@ zip_logs() {
 }
 
 log() {
-    local errorOut=true quiet=false ret OPTION OPTIND
-    while getopts ':qe' OPTION; do
+    local errorOut=true quiet=false noRunning=false dontPrint=true ret OPTION OPTIND
+    while getopts ':qenp' OPTION; do
         case "$OPTION" in
         e) errorOut=false ;;
         q) quiet=true ;;
+        n) noRunning=true ;;
+        p) dontPrint=false ;;
         *) break ;;
         esac
     done
@@ -1535,13 +1530,18 @@ log() {
     [[ $1 == quiet ]] && quiet=true && shift # Temp compat with old style just in case
     local name="${1// /.}" _cmd="$2" extra
     shift 2
-    $quiet || do_print_progress Running "$name"
+    $quiet || $noRunning || do_print_progress Running "$name"
     [[ $_cmd =~ ^(make|ninja)$ ]] && extra="-j$cpuCount"
 
     if [[ $logging == "y" ]]; then
         printf 'CPPFLAGS: %s\nCFLAGS: %s\nCXXFLAGS: %s\nLDFLAGS: %s\n%s %s\n' "$CPPFLAGS" "$CFLAGS" "$CXXFLAGS" "$LDFLAGS" "$_cmd${extra:+ $extra}" "$*" > "ab-suite.$name.log"
-        $_cmd $extra "$@" >> "ab-suite.$name.log" 2>&1 ||
-            { [[ $extra ]] && $_cmd -j1 "$@" >> "ab-suite.$name.log" 2>&1; }
+        if $dontPrint; then
+            $_cmd $extra "$@" >> "ab-suite.$name.log" 2>&1 ||
+                { [[ $extra ]] && $_cmd -j1 "$@" >> "ab-suite.$name.log" 2>&1; }
+        else
+            { $_cmd $extra "$@" 2>&1 || { [[ $extra ]] && $_cmd -j1 "$@" 2>&1; } } \
+                | tee -a "ab-suite.$name.log"
+        fi
     else
         $_cmd $extra "$@" || { [[ $extra ]] && $_cmd -j1 "$@"; }
     fi
@@ -1719,7 +1719,10 @@ do_unhide_all_sharedlibs() {
 
 do_pacman_resolve_pkgs() (
     : "${prefix=$MINGW_PACKAGE_PREFIX-}"
-    pacsift --exact --sync --any "${@/#/--provides=$prefix}" "${@/#/--name=$prefix}" 2>&1 | sed "s|^.*/$prefix||"
+    # Prefer exact matches, then provides
+    pkg=$(pacsift --exact --sync --any "${@/#/--name=$prefix}" 2>&1)
+    [[ -z $pkg ]] && pkg=$(pacsift --exact --sync --any "${@/#/--provides=$prefix}" 2>&1)
+    echo "${pkg#*/"$prefix"}"
 )
 
 is_pkg_installed() (
@@ -2383,12 +2386,12 @@ extra_script() {
         type "_${stage}_build" > /dev/null 2>&1; then
         pushd "${REPO_DIR}" > /dev/null 2>&1 || true
         do_print_progress "Running ${stage} build from ${vcsFolder}_extra.sh"
-        log -q "${stage}_build" "_${stage}_build"
+        log -n -p "${stage}_build" "_${stage}_build"
         popd > /dev/null 2>&1 || true
     elif type "_${stage}_${commandname}" > /dev/null 2>&1; then
         pushd "${REPO_DIR}" > /dev/null 2>&1 || true
         do_print_progress "Running ${stage} ${commandname} from ${vcsFolder}_extra.sh"
-        log -q "${stage}_${commandname}" "_${stage}_${commandname}"
+        log -n -p "${stage}_${commandname}" "_${stage}_${commandname}"
         popd > /dev/null 2>&1 || true
     fi
 }
@@ -2484,6 +2487,10 @@ create_extra_skeleton() {
 _pre_vcs() {
     # ref changes the branch/commit/tag that you want to clone
     ref=research
+
+    # Bypasses any patches that the suite applies, they will still get downloaded in case they want to be patched in some other form
+    # You need to delete the file again if you want to patch something yourself!
+    #touch "$(get_first_subdir -f)/do_not_patch"
 }
 
 # Commands to run before and after running cmake (do_cmake)
