@@ -1497,13 +1497,12 @@ if { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; th
     fi
 fi
 
-_check=(libbluray.{{,l}a,pc})
+_check=(libbluray.{a,pc})
 if { { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; } &&
     do_vcs "$SOURCE_REPO_LIBBLURAY"; then
     [[ -f contrib/libudfread/.git ]] || do_git_submodule
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libbluray/0001-dec-prefix-with-libbluray-for-now.patch" am
-    do_autoreconf
-    do_uninstall include/libbluray share/java "${_check[@]}"
+    do_uninstall include/libbluray share/java "${_check[@]}" libbluray.la
     sed -i 's|__declspec(dllexport)||g' jni/win32/jni_md.h
     extracommands=()
     log javahome get_java_home
@@ -1524,16 +1523,16 @@ if { { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; 
         export JDK_HOME=''
         export JAVA_HOME
     else
-        extracommands+=(--disable-bdjava-jar)
+        extracommands+=(-Dbdj_jar=disabled)
     fi
-    if enabled libxml2; then
-        sed -ri 's;(Cflags.*);\1 -DLIBXML_STATIC;' src/libbluray.pc.in
-    else
-        extracommands+=(--without-libxml2)
+    if ! enabled libxml2; then
+        extracommands+=(-Dlibxml2=disabled)
     fi
     CFLAGS+=" $(enabled libxml2 && echo "-DLIBXML_STATIC")" \
-        do_separate_confmakeinstall --disable-{examples,doxygen-doc} \
-        --without-{fontconfig,freetype} "${extracommands[@]}"
+        do_mesoninstall -Dfontconfig=disabled -Dfreetype=disabled "${extracommands[@]}"
+    if enabled libxml2; then
+        sed -ri 's;(Cflags.*);\1 -DLIBXML_STATIC;' $LOCALDESTDIR/lib/pkgconfig/libbluray.pc
+    fi
     do_checkIfExist
     PATH=$OLD_PATH
     unset extracommands JDK_HOME JAVA_HOME OLD_PATH
@@ -2506,9 +2505,6 @@ if [[ $ffmpeg != no ]]; then
             do_patch "https://raw.githubusercontent.com/OpenVisualCloud/SVT-VP9/master/ffmpeg_plugin/master-0001-Add-ability-for-ffmpeg-to-run-svt-vp9.patch" am ||
                 do_removeOption --enable-libsvtvp9
         fi
-        if enabled libsvtav1; then
-            do_patch "https://code.ffmpeg.org/FFmpeg/FFmpeg/pulls/12.patch" am
-        fi
 
         enabled libsvthevc || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvthevc"
         enabled libsvtav1 || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvtav1"
@@ -2652,7 +2648,7 @@ if [[ $libheif != n ]] &&
     do_patch https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libheif/0001-Edit-CMakeLists.patch
 
     extracflags=()
-    extracommands=(-DWITH_HEADER_COMPRESSION=ON -DWITH_UNCOMPRESSED_CODEC=ON)
+    extracommands=(-DWITH_HEADER_COMPRESSION=ON -DWITH_UNCOMPRESSED_CODEC=ON -DBUILD_DOCUMENTATION=OFF)
 
     pc_exists "libde265" &&
         extracommands+=(-DWITH_LIBDE265=ON -DWITH_LIBDE265_PLUGIN=OFF) &&
