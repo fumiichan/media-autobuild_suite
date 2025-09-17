@@ -37,6 +37,7 @@ while true; do
     --ffmpegUpdate=* ) ffmpegUpdate=${1#*=} && shift ;;
     --ffmpegPath=* ) ffmpegPath="${1#*=}"; shift ;;
     --ffmpegChoice=* ) ffmpegChoice=${1#*=} && shift ;;
+    --ffmpegKeepLegacyOpts=* ) ffmpegKeepLegacyOpts=${1#*=} && shift ;;
     --mplayer=* ) mplayer=${1#*=} && shift ;;
     --mpv=* ) mpv=${1#*=} && shift ;;
     --deleteSource=* ) deleteSource=${1#*=} && shift ;;
@@ -1442,27 +1443,25 @@ if { { [[ $ffmpeg != no ]] &&
     do_checkIfExist
 fi
 
-_check=(libdvdread.{,l}a dvdread.pc)
+_check=(libdvdread.a dvdread.pc)
 if { { [[ $ffmpeg != no ]] && enabled_any libdvdread libdvdnav; } ||
     [[ $mplayer = y ]] || mpv_enabled dvdnav; } &&
     do_vcs "$SOURCE_REPO_LIBDVDREAD" dvdread; then
-    do_autoreconf
     do_uninstall include/dvdread "${_check[@]}"
-    do_separate_confmakeinstall
+    do_mesoninstall
     do_checkIfExist
 fi
 [[ -f $LOCALDESTDIR/lib/pkgconfig/dvdread.pc ]] &&
     grep_or_sed "Libs.private" "$LOCALDESTDIR"/lib/pkgconfig/dvdread.pc \
         "/Libs:/ a\Libs.private: -ldl -lpsapi"
 
-_check=(libdvdnav.{,l}a dvdnav.pc)
+_check=(libdvdnav.a dvdnav.pc)
 _deps=(libdvdread.a)
 if { { [[ $ffmpeg != no ]] && enabled libdvdnav; } ||
     [[ $mplayer = y ]] || mpv_enabled dvdnav; } &&
     do_vcs "$SOURCE_REPO_LIBDVDNAV" dvdnav; then
-    do_autoreconf
     do_uninstall include/dvdnav "${_check[@]}"
-    do_separate_confmakeinstall
+    do_mesoninstall
     do_checkIfExist
 fi
 
@@ -1798,7 +1797,7 @@ if [[ $x264 != no ]] ||
         unset_extra_script
         if [[ $standalone = y || $av1an = y ]] && [[ $x264 =~ (full|fullv) ]]; then
             _check=("$LOCALDESTDIR"/opt/lightffmpeg/lib/pkgconfig/libav{codec,format}.pc)
-            do_vcs "$ffmpegPath"
+            do_vcs "$ffmpegPath" ffmpeg
             do_uninstall "$LOCALDESTDIR"/opt/lightffmpeg
             [[ -f config.mak ]] && log "distclean" make distclean
             create_build_dir light
@@ -2489,7 +2488,7 @@ if [[ $ffmpeg != no ]]; then
         _deps=(lib{aom,tesseract,vmaf,x265,vpx}.a)
     [[ $ffmpegUpdate = y ]] && enabled zlib &&
         _deps+=("$zlib_dir"/lib/libz.a)
-    if do_vcs "$ffmpegPath"; then
+    if do_vcs "$ffmpegPath" ffmpeg; then
         ff_base_commit=$(git rev-parse HEAD)
         do_changeFFmpegConfig "$license"
         [[ -f ffmpeg_extra.sh ]] && source ffmpeg_extra.sh
@@ -2981,7 +2980,7 @@ if [[ $cyanrip = y ]]; then
         do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/cyanrip/0001-os_compat-re-add-cast-for-gcc-15-compat.patch" am
         old_PKG_CONFIG_PATH=$PKG_CONFIG_PATH
         _check=("$LOCALDESTDIR"/opt/cyanffmpeg/lib/pkgconfig/libav{codec,format}.pc)
-        if flavor=cyan do_vcs "$ffmpegPath"; then
+        if flavor=cyan do_vcs "$ffmpegPath" ffmpeg; then
             do_uninstall "$LOCALDESTDIR"/opt/cyanffmpeg
             [[ -f config.mak ]] && log "distclean" make distclean
             mapfile -t cyan_ffmpeg_opts < <(
