@@ -128,7 +128,7 @@ libtesseract libxavs libzmq libzvbi openal libcodec2 ladspa #vapoursynth #liblen
 libglslang vulkan libdavs2 libxavs2 libuavs3d libplacebo libjxl libvvenc libvvdec liblc3 audiotoolbox
 
 :: options also available with the suite that add shared dependencies
-set ffmpeg_options_full_shared=opencl opengl cuda-nvcc libnpp libopenh264
+set ffmpeg_options_full_shared=opencl opengl cuda-nvcc libopenh264
 
 :: built-ins
 set mpv_options_builtin="#-Dcplayer=true" #manpage-build #lua #javascript ^
@@ -276,7 +276,13 @@ if [0]==[%av1anINI%] (
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------
     set /P buildav1an="Build av1an: "
-) else set buildav1an=%av1anINI%
+) else (
+	if %av1anINI% GTR 2 (
+		set "buildav1an=2"
+	) else (
+		set buildav1an=%av1anINI%
+	)
+)
 
 if "%buildav1an%"=="" GOTO av1an
 if %buildav1an%==1 set "av1an=y"
@@ -836,7 +842,7 @@ if [0]==[%ffmpegB2INI%] (
     echo. dependees are enabled.
     echo. Option 6 produces static and shared ffmpeg and ffmpeg libs where the static
     echo. one includes only strictly static dependencies (opencl, opengl, cuda-nvcc,
-    echo. libnpp, libopenh264 are hard disabled.^)
+    echo. libopenh264 are hard disabled.^)
     echo.
     echo -------------------------------------------------------------------------------
     echo -------------------------------------------------------------------------------

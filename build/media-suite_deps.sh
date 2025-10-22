@@ -12,7 +12,7 @@ SOURCE_REPO_CURL=https://github.com/curl/curl.git
 SOURCE_REPO_CYANRIP=https://github.com/cyanreg/cyanrip.git
 SOURCE_REPO_DAV1D=https://code.videolan.org/videolan/dav1d.git
 SOURCE_REPO_DAVS=https://github.com/pkuvcl/davs2.git
-SOURCE_REPO_DECKLINK=https://gitlab.com/m-ab-s/decklink-headers.git
+SOURCE_REPO_DECKLINK=https://gitlab.com/m-ab-s/decklink-headers.git#commit=47d84f8d272ca6872b5440eae57609e36014f3b6
 SOURCE_REPO_DLFCN=https://github.com/dlfcn-win32/dlfcn-win32.git
 SOURCE_REPO_DOVI_TOOL=https://github.com/quietvoid/dovi_tool.git
 SOURCE_REPO_DSSIM=https://github.com/kornelski/dssim.git
@@ -62,9 +62,9 @@ SOURCE_REPO_LIBMUSICBRAINZ=https://github.com/metabrainz/libmusicbrainz.git
 SOURCE_REPO_LIBMYSOFA=https://github.com/hoene/libmysofa.git
 SOURCE_REPO_LIBOGG=https://github.com/xiph/ogg.git
 SOURCE_REPO_LIBOPENMPT=https://github.com/OpenMPT/openmpt.git#branch=OpenMPT-1.30
-SOURCE_REPO_LIBOPUSENC=https://gitlab.xiph.org/xiph/libopusenc.git
+SOURCE_REPO_LIBOPUSENC=https://github.com/xiph/libopusenc.git
 SOURCE_REPO_LIBPLACEBO=https://code.videolan.org/videolan/libplacebo.git
-SOURCE_REPO_LIBPNG=https://github.com/glennrp/libpng.git
+SOURCE_REPO_LIBPNG=https://github.com/glennrp/libpng.git#branch=libpng16
 SOURCE_REPO_LIBRAV1E=https://github.com/xiph/rav1e.git
 SOURCE_REPO_LIBRESSL=https://github.com/libressl-portable/portable.git#tag=LATEST
 SOURCE_REPO_LIBRIST=https://code.videolan.org/rist/librist.git
@@ -89,9 +89,9 @@ SOURCE_REPO_NEON=https://github.com/notroj/neon.git
 SOURCE_REPO_OPENAL=https://github.com/kcat/openal-soft.git
 SOURCE_REPO_OPENAPV=https://github.com/AcademySoftwareFoundation/openapv.git
 SOURCE_REPO_OPENCLHEADERS=https://github.com/KhronosGroup/OpenCL-Headers.git
-SOURCE_REPO_OPUS=https://gitlab.xiph.org/xiph/opus.git
-SOURCE_REPO_OPUSEXE=https://gitlab.xiph.org/xiph/opus-tools.git
-SOURCE_REPO_OPUSFILE=https://gitlab.xiph.org/xiph/opusfile.git
+SOURCE_REPO_OPUS=https://github.com/xiph/opus.git
+SOURCE_REPO_OPUSEXE=https://github.com/xiph/opus-tools.git
+SOURCE_REPO_OPUSFILE=https://github.com/xiph/opusfile.git
 SOURCE_REPO_RIPGREP=https://github.com/BurntSushi/ripgrep.git
 SOURCE_REPO_RUBBERBAND=https://github.com/m-ab-s/rubberband.git
 SOURCE_REPO_SDL2=https://github.com/libsdl-org/SDL.git#SDL2

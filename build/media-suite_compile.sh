@@ -965,7 +965,10 @@ if enabled libopus && do_vcs "$SOURCE_REPO_OPUS"; then
         ln -s "$LOCALBUILDDIR/$model" .
     )
     do_autogen
-    do_separate_confmakeinstall --disable-{stack-protector,doc,extra-programs}
+    # The default flags used by opus configure + a warning disable flag.
+    # GCC fails this test with that warning as error, so avx2 intrinsics never got built.
+    X86_AVX2_CFLAGS="-mavx -mfma -mavx2 -Wno-incompatible-pointer-types" \
+        do_separate_confmakeinstall --disable-{stack-protector,doc,extra-programs}
     do_checkIfExist
 fi
 
@@ -1451,9 +1454,9 @@ if { { [[ $ffmpeg != no ]] && enabled_any libdvdread libdvdnav; } ||
     do_mesoninstall
     do_checkIfExist
 fi
-[[ -f $LOCALDESTDIR/lib/pkgconfig/dvdread.pc ]] &&
-    grep_or_sed "Libs.private" "$LOCALDESTDIR"/lib/pkgconfig/dvdread.pc \
-        "/Libs:/ a\Libs.private: -ldl -lpsapi"
+# [[ -f $LOCALDESTDIR/lib/pkgconfig/dvdread.pc ]] &&
+#     grep_or_sed "Libs.private" "$LOCALDESTDIR"/lib/pkgconfig/dvdread.pc \
+#         "/Libs:/ a\Libs.private: -ldl -lpsapi"
 
 _check=(libdvdnav.a dvdnav.pc)
 _deps=(libdvdread.a)
@@ -1585,7 +1588,7 @@ _check=(libuavs3d.a uavs3d.{h,pc})
 [[ $standalone = y ]] && _check+=(bin-video/uavs3dec.exe)
 if [[ $ffmpeg != no ]] && enabled libuavs3d &&
     do_vcs "$SOURCE_REPO_UAVS3D"; then
-    do_cmakeinstall
+    do_cmakeinstall -DCOMPILE_10BIT=ON # 10bit lib supports both 8 and 10 bits
     [[ $standalone = y ]] && do_install uavs3dec.exe bin-video/
     do_checkIfExist
 fi
@@ -1828,7 +1831,6 @@ if [[ $x264 != no ]] ||
             if do_vcs "$SOURCE_REPO_FFMS2"; then
                 do_uninstall "${_check[@]}"
                 sed -i 's/Cflags.*/& -DFFMS_STATIC/' ffms2.pc.in
-                do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/ffms2/0001-ffmsindex-fix-linking-issues.patch" am
                 mkdir -p src/config
                 do_autoreconf
                 do_separate_confmakeinstall video --prefix="$LOCALDESTDIR/opt/lightffmpeg"
@@ -2339,7 +2341,7 @@ if { [[ $mpv != n ]] ||
     do_checkIfExist
 fi
 
-_check=(lib{glslang,OSDependent,SPVRemapper}.a
+_check=(lib{glslang,OSDependent}.a
         libSPIRV{,-Tools{,-opt,-link,-reduce}}.a glslang/SPIRV/GlslangToSpv.h)
 if { [[ $mpv != n ]] ||
      { [[ $ffmpeg != no ]] && enabled_any libplacebo libglslang; } } &&
@@ -2512,7 +2514,7 @@ if [[ $ffmpeg != no ]]; then
         # Bypass ffmpeg check for audiotoolbox
         enabled audiotoolbox && do_addOption --extra-libs=-lAudioToolboxWrapper && do_addOption --disable-outdev=audiotoolbox &&
             do_addOption FFMPEG_OPTS_SHARED --extra-libs=-lAudioToolboxWrapper && do_addOption FFMPEG_OPTS_SHARED --disable-outdev=audiotoolbox &&
-            sed -ri "s/check_apple_framework AudioToolbox/check_apple_framework/g" configure
+            sed -ri "s/enabled audiotoolbox && check_apple_framework.*/enable audiotoolbox/g" configure
 
         if enabled openal &&
             pc_exists "openal"; then
@@ -2912,6 +2914,15 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
         mpv_enabled pdf-build && do_pacman_install python-rst2pdf
 
         [[ -f mpv_extra.sh ]] && source mpv_extra.sh
+
+        # We don't have that lib, but mpv specifically checks that lib *only*, and it's required for d3d11 support.
+        # So d3d11 support never got built, but the "non c-shared" lib actually works.
+        sed -i "s|spirv-cross-c-shared|spirv-cross|" meson.build
+
+        # Fix clang vsscript.dll hard requirement, imitate shinchiro's cmake.
+        [[ $CC =~ clang ]] && \
+            sed -i "s|-lvsscript|-lvsscript -Wl,-delayload=vsscript.dll|" \
+                "$LOCALDESTDIR"/lib/pkgconfig/vapoursynth-script.pc
 
         mapfile -t MPV_ARGS < <(mpv_build_args)
         CFLAGS+=" ${mpv_cflags[*]}" LDFLAGS+=" ${mpv_ldflags[*]}" \
