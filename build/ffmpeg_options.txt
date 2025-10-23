@@ -88,7 +88,7 @@
 --enable-librist
 --enable-librtmp
 --enable-librubberband
-#--enable-libssh
+#
 --enable-libtesseract
 --enable-libxavs
 --enable-libzmq
@@ -114,7 +114,7 @@
 --enable-opencl
 --enable-opengl
 --enable-cuda-nvcc
---enable-libnpp
+
 --enable-libopenh264
 
 # Core Audio Toolbox
