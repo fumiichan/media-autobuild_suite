@@ -28,7 +28,7 @@
 -Dpdf-build=disabled
 -Dmanpage-build=disabled
 -Dopenal=enabled
--Dsdl2=enabled
+#-Dsdl2=enabled
 #-Dsdl2-gamepad=enabled
 #-Dsdl2-audio=enabled
 #-Dsdl2-video=enabled
