@@ -960,14 +960,14 @@ do_changeFFmpegConfig() {
     # handle (l)gplv3 libs
     local version3
     read -ra version3 <<< "${EXTERNAL_LIBRARY_VERSION3_LIST//_/-}"
-    if [[ $license =~ (l|)gplv3 || $license == nonfree ]] && enabled_any "${version3[@]}"; then
+    if [[ $license == gplv3 || $license == lgplv3 || $license == nonfree ]] && enabled_any "${version3[@]}"; then
         do_addOption --enable-version3
     else
         do_removeOptions "${version3[*]/#/--enable-} --enable-version3"
     fi
 
     local nonfreehwaccel
-    read -ra nonfreehwaccel <<< "(${HWACCEL_LIBRARY_NONFREE_LIST//_/-}"
+    read -ra nonfreehwaccel <<< "${HWACCEL_LIBRARY_NONFREE_LIST//_/-}"
     if [[ $license == "nonfree" ]] && enabled_any "${nonfreehwaccel[@]}"; then
         do_addOption --enable-nonfree
     else
