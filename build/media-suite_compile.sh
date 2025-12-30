@@ -702,7 +702,7 @@ fi
 if [[ $ffmpeg != no && -f $opencldll ]] && enabled opencl; then
     do_simple_print "${orange}FFmpeg and related apps will depend on OpenCL.dll$reset"
     do_pacman_remove opencl-headers
-    do_pacman_install tools-git
+    do_pacman_install tools
     _check=(CL/cl.h)
     if do_vcs "$SOURCE_REPO_OPENCLHEADERS"; then
         do_uninstall include/CL
@@ -2054,7 +2054,7 @@ _vapoursynth_install() {
         do_simple_print "${orange}Vapoursynth is known to be broken on 32-bit and will be disabled"'!'"${reset}"
         return 1
     fi
-    do_pacman_install tools-git
+    do_pacman_install tools
     _python_ver=3.12.10
     _python_lib=python312
     _vsver=72
@@ -2672,7 +2672,8 @@ if [[ $libheif != n ]] &&
     do_patch https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libheif/0001-Edit-CMakeLists.patch
 
     extracflags=()
-    extracommands=(-DWITH_HEADER_COMPRESSION=ON -DWITH_UNCOMPRESSED_CODEC=ON -DBUILD_DOCUMENTATION=OFF)
+    extracommands=(-DWITH_HEADER_COMPRESSION=ON -DWITH_UNCOMPRESSED_CODEC=ON -DBUILD_DOCUMENTATION=OFF \
+        -DWITH_JPEG_{DE,EN}CODER=ON -DWITH_JPEG_{DE,EN}CODER_PLUGIN=OFF)
 
     pc_exists "libde265" &&
         extracommands+=(-DWITH_LIBDE265=ON -DWITH_LIBDE265_PLUGIN=OFF) &&
@@ -2696,8 +2697,6 @@ if [[ $libheif != n ]] &&
         extracommands+=(-DWITH_VVENC=ON -DWITH_VVENC_PLUGIN=OFF)
     pc_exists "libvvdec" &&
         extracommands+=(-DWITH_VVDEC=ON -DWITH_VVDEC_PLUGIN=OFF)
-    pacman -Q $MINGW_PACKAGE_PREFIX-libjpeg > /dev/null 2>&1 &&
-        extracommands+=(-DWITH_JPEG_{DE,EN}CODER=ON -DWITH_JPEG_{DE,EN}CODER_PLUGIN=OFF)
     pacman -Q $MINGW_PACKAGE_PREFIX-openh264 > /dev/null 2>&1 &&
         extracommands+=(-DWITH_OpenH264_DECODER=ON -DWITH_OpenH264_DECODER_PLUGIN=OFF)
 
