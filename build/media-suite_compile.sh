@@ -818,8 +818,8 @@ fi
 set_title "compiling audio tools"
 do_simple_print -p '\n\t'"${orange}Starting $bits compilation of audio tools${reset}"
 
+[[ $sox = y ]] && do_pacman_install wavpack
 if [[ $ffmpeg != no || $sox = y ]]; then
-    do_pacman_install wavpack
     enabled_any libopencore-amr{wb,nb} && do_pacman_install opencore-amr
     if enabled libtwolame; then
         do_pacman_install twolame
@@ -962,19 +962,8 @@ _check=(libopus.{,l}a opus.pc opus/opus.h)
 if enabled libopus && do_vcs "$SOURCE_REPO_OPUS"; then
     do_pacman_remove opus
     do_uninstall include/opus "${_check[@]}"
-    (
-        sha=$(grep dnn/download_model.sh autogen.sh | awk -F'"' '{print $2}')
-        model=opus_data-${sha}.tar.gz
-        pushd . > /dev/null
-        [ -f "/build/$model" ] || do_wget -r -q -n "https://media.xiph.org/opus/models/$model"
-        popd > /dev/null || return 1
-        ln -s "$LOCALBUILDDIR/$model" .
-    )
-    do_autogen
-    # The default flags used by opus configure + a warning disable flag.
-    # GCC fails this test with that warning as error, so avx2 intrinsics never got built.
-    X86_AVX2_CFLAGS="-mavx -mfma -mavx2 -Wno-incompatible-pointer-types" \
-        do_separate_confmakeinstall --disable-{stack-protector,doc,extra-programs}
+    do_autoreconf
+    do_separate_confmakeinstall --disable-{stack-protector,doc,extra-programs}
     do_checkIfExist
 fi
 
@@ -1092,6 +1081,7 @@ _check=(bin-audio/sox.exe sox.pc)
 _deps=(libsndfile.a opus.pc "$MINGW_PREFIX"/lib/libmp3lame.a)
 if [[ $sox = y ]]; then
     do_pacman_install libmad
+    do_pacman_install libid3tag
     extracommands=()
     if enabled libopus; then
         [[ $standalone = y ]] || do_pacman_install opusfile
@@ -1114,7 +1104,7 @@ if [[ $sox = y ]]; then
         enabled libvorbis || extracommands+=(--without-oggvorbis)
         hide_conflicting_libs
         sed -i 's|found_libgsm=yes|found_libgsm=no|g' configure
-        do_separate_conf --disable-symlinks LIBS="-L$LOCALDESTDIR/lib ${extralibs[*]}" "${extracommands[@]}"
+        do_separate_conf --disable-symlinks ac_cv_lib_winmm_waveOutOpen=yes LIBS="-L$LOCALDESTDIR/lib ${extralibs[*]}" "${extracommands[@]}"
         do_make
         do_install src/sox.exe bin-audio/
         do_install sox.pc
@@ -2354,7 +2344,7 @@ fi
 _check=(lib{glslang,OSDependent}.a
         libSPIRV{,-Tools{,-opt,-link,-reduce}}.a glslang/SPIRV/GlslangToSpv.h)
 if { [[ $mpv != n ]] ||
-     { [[ $ffmpeg != no ]] && enabled_any libplacebo libglslang; } } &&
+     { [[ $ffmpeg != no ]] && enabled_any libplacebo libglslang libshaderc vulkan; } } &&
     do_vcs "$SOURCE_REPO_GLSLANG"; then
     do_uninstall libHLSL.a "${_check[@]}"
     sed -i "s|command_output(\['git', 'clone',|command_output(\['git', 'clone', '--filter=tree:0',|" ./update_glslang_sources.py
@@ -2365,7 +2355,7 @@ fi
 
 _check=(shaderc/shaderc.h libshaderc_combined.a)
 if { [[ $mpv != n ]] ||
-     { [[ $ffmpeg != no ]] && enabled libplacebo; } } ||
+     { [[ $ffmpeg != no ]] && enabled_any libplacebo libshaderc; } } ||
      ! mpv_disabled shaderc &&
     do_vcs "$SOURCE_REPO_SHADERC"; then
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/shaderc/0001-third_party-set-INSTALL-variables-as-cache.patch" am
@@ -2556,6 +2546,10 @@ if [[ $ffmpeg != no ]]; then
             grep_and_sed '__declspec(__dllimport__)' "$MINGW_PREFIX"/include/gmp.h \
                 's|__declspec\(__dllimport__\)||g' "$MINGW_PREFIX"/include/gmp.h
         fi
+
+        enabled vulkan && ! enabled_any libshaderc libglslang && do_addOption --enable-libglslang
+        enabled_all libshaderc libglslang && do_removeOption --enable-libglslang
+        enabled libshaderc && sed -ri 's/(require_pkg_config spirv_library "shaderc) >/\1_combined >/' configure
 
         _patches=$(git rev-list $ff_base_commit.. --count)
         if [[ $_patches -gt 0 ]]; then
