@@ -22,7 +22,7 @@ SOURCE_REPO_FDKAAC=https://github.com/mstorsjo/fdk-aac
 SOURCE_REPO_FDKAACEXE=https://github.com/nu774/fdkaac
 SOURCE_REPO_FFMBC=https://github.com/bcoudurier/FFmbc.git#branch=ffmbc # no other branch
 SOURCE_REPO_FFMS2=https://github.com/FFMS/ffms2.git
-SOURCE_REPO_FFNVCODEC=https://git.videolan.org/git/ffmpeg/nv-codec-headers.git
+SOURCE_REPO_FFNVCODEC=https://code.ffmpeg.org/FFmpeg/nv-codec-headers.git
 SOURCE_REPO_FLAC=https://github.com/xiph/flac.git
 SOURCE_REPO_FLITE=https://github.com/festvox/flite.git
 SOURCE_REPO_FONTCONFIG=https://gitlab.freedesktop.org/fontconfig/fontconfig.git#tag=LATEST
@@ -86,7 +86,7 @@ SOURCE_REPO_MINIZIPNG=https://github.com/zlib-ng/minizip-ng.git
 SOURCE_REPO_MPV=https://github.com/mpv-player/mpv.git
 SOURCE_REPO_MUJS=https://codeberg.org/ccxvii/mujs.git
 SOURCE_REPO_NEON=https://github.com/notroj/neon.git
-SOURCE_REPO_OPENAL=https://github.com/kcat/openal-soft.git
+SOURCE_REPO_OPENAL=https://github.com/kcat/openal-soft.git#tag=latest
 SOURCE_REPO_OPENAPV=https://github.com/AcademySoftwareFoundation/openapv.git
 SOURCE_REPO_OPENCLHEADERS=https://github.com/KhronosGroup/OpenCL-Headers.git
 SOURCE_REPO_OPUS=https://github.com/xiph/opus.git
