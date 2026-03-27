@@ -3,7 +3,7 @@
 # Built-in options, use =disabled to disable them
 #-Dcplayer=true
 -Dlua=enabled
--Djavascript=enabled
+-Djavascript=disabled
 -Dlibbluray=enabled
 #-Duchardet=enabled
 #-Drubberband=enabled

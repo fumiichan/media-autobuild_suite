@@ -2386,9 +2386,7 @@ if { [[ $mpv != n ]] ||
     do_vcs "$SOURCE_REPO_LIBPLACEBO"; then
     do_git_submodule
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libplacebo/0001-meson-use-shaderc_combined.patch" am
-
-    # We don't need it since we already built spirv-cross-c-shared
-    # do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libplacebo/0002-spirv-cross-use-spirv-cross-instead-of-c-shared.patch" am
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libplacebo/0002-spirv-cross-use-spirv-cross-instead-of-c-shared.patch" am
 
     do_pacman_install python-{mako,setuptools}
     do_uninstall "${_check[@]}"
@@ -2669,9 +2667,6 @@ if [[ $libheif != n ]] &&
     pc_exists "libpng" || do_pacman_install libpng
 
     do_patch https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libheif/0001-Edit-CMakeLists.patch
-
-    # Patch this to support SVT-AV1 >= 4.0.0. Remove this once its been added to the repository
-    do_patch https://patch-diff.githubusercontent.com/raw/strukturag/libheif/pull/1680.patch
 
     extracflags=()
     extracommands=(-DWITH_HEADER_COMPRESSION=ON -DWITH_UNCOMPRESSED_CODEC=ON -DBUILD_DOCUMENTATION=OFF \
