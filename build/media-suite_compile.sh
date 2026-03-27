@@ -2670,6 +2670,9 @@ if [[ $libheif != n ]] &&
 
     do_patch https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libheif/0001-Edit-CMakeLists.patch
 
+    # Patch this to support SVT-AV1 >= 4.0.0. Remove this once its been added to the repository
+    do_patch https://patch-diff.githubusercontent.com/raw/strukturag/libheif/pull/1680.patch
+
     extracflags=()
     extracommands=(-DWITH_HEADER_COMPRESSION=ON -DWITH_UNCOMPRESSED_CODEC=ON -DBUILD_DOCUMENTATION=OFF \
         -DWITH_JPEG_{DE,EN}CODER=ON -DWITH_JPEG_{DE,EN}CODER_PLUGIN=OFF)
