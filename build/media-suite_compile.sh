@@ -2386,7 +2386,10 @@ if { [[ $mpv != n ]] ||
     do_vcs "$SOURCE_REPO_LIBPLACEBO"; then
     do_git_submodule
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libplacebo/0001-meson-use-shaderc_combined.patch" am
-    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libplacebo/0002-spirv-cross-use-spirv-cross-instead-of-c-shared.patch" am
+
+    # We don't need it since we already built spirv-cross-c-shared
+    # do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libplacebo/0002-spirv-cross-use-spirv-cross-instead-of-c-shared.patch" am
+
     do_pacman_install python-{mako,setuptools}
     do_uninstall "${_check[@]}"
     do_mesoninstall -Dvulkan-registry="$LOCALDESTDIR/share/vulkan/registry/vk.xml" -Ddemos=false -Dd3d11=enabled
