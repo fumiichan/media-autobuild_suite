@@ -929,9 +929,9 @@ do_getFFmpegConfig() {
     fi
 
     if [[ $ffmpegKeepLegacyOpts == n ]]; then
-        enabled_any lib{vo-aacenc,aacplus,utvideo,dcadec,faac,ebur128,ndi_newtek,ndi-newtek,npp,ssh,wavpack} netcdf &&
-            do_removeOption "--enable-(lib(vo-aacenc|aacplus|utvideo|dcadec|faac|ebur128|ndi_newtek|ndi-newtek|npp|ssh|wavpack)|netcdf)" &&
-            sed -ri 's;--enable-(lib(vo-aacenc|aacplus|utvideo|dcadec|faac|ebur128|ndi_newtek|ndi-newtek|npp|ssh|wavpack)|netcdf);;g' \
+        enabled_any lib{vo-aacenc,aacplus,utvideo,dcadec,faac,ebur128,glslang,ndi_newtek,ndi-newtek,npp,shaderc,wavpack} netcdf &&
+            do_removeOption "--enable-(lib(vo-aacenc|aacplus|utvideo|dcadec|faac|ebur128|glslang|ndi_newtek|ndi-newtek|npp|shaderc|wavpack)|netcdf)" &&
+            sed -ri 's;--enable-(lib(vo-aacenc|aacplus|utvideo|dcadec|faac|ebur128|glslang|ndi_newtek|ndi-newtek|npp|shaderc|wavpack)|netcdf);;g' \
                 "$LOCALBUILDDIR/ffmpeg_options.txt"
     fi
 }
@@ -1201,6 +1201,7 @@ do_addOption() {
     for opt; do
         ! opt_exists "$array" "$opt" && declare -ag "$array+=(\"$opt\")"
     done
+    return 0
 }
 
 do_removeOption() {
@@ -1447,9 +1448,11 @@ do_rustcinstall() {
     extra_script pre rust
     [[ -f "$(get_first_subdir -f)/do_not_reconfigure" ]] &&
         return
+    # We use capi install instead of cinstall because it requires elevated perms for cargo-cinstall.exe with clang64.
+    # Something about the cinstall work triggers UAC.
     PKG_CONFIG_ALL_STATIC=true \
         PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config" \
-        log "rust.cinstall" cargo cinstall \
+        log "rust.cinstall" cargo capi install \
         --target="$CARCH"-pc-windows-gnu$target_suffix \
         --jobs="$cpuCount" --prefix="$LOCALDESTDIR" "$@" "${rust_extras[@]}"
     extra_script post rust
@@ -1665,10 +1668,11 @@ do_makeinstall() {
 do_hide_pacman_sharedlibs() {
     local packages="$1"
     local revert="$2"
-    local files
-    files="$(pacman -Qql "$packages" 2> /dev/null | grep .dll.a)"
+    shift 2
+    set -- $packages
+    set -- $(pacman -Qql "$@" 2> /dev/null | grep .dll.a)
 
-    for file in $files; do
+    for file in "$@"; do
         if [[ -f "${file%*.dll.a}.a" ]]; then
             if [[ -z $revert ]]; then
                 mv -f "${file}" "${file}.dyn"
@@ -1684,7 +1688,7 @@ do_hide_pacman_sharedlibs() {
 do_hide_all_sharedlibs() {
     local dryrun="${dry:-n}"
     local files
-    files="$(find /{mingw{32,64},clang64}/lib /{mingw{32/i686,64/x86_64},clang64/x86_64}-w64-mingw32/lib -name "*.dll.a" 2> /dev/null)"
+    files="$(find /{mingw{32,64},clang64,ucrt64}/lib /{mingw{32/i686,64/x86_64},clang64,ucrt64/x86_64}-w64-mingw32/lib -name "*.dll.a" 2> /dev/null)"
     local tomove=()
     for file in $files; do
         [[ -f ${file%*.dll.a}.a ]] && tomove+=("$file")
@@ -1894,6 +1898,93 @@ create_debug_link() {
     done
 }
 
+# Prefix internal strong symbols in a static archive without changing its public ABI.
+# preserve_regex is an AWK ERE tested against each full symbol name; matches stay unchanged.
+# Unsafe archive formats and target-name collisions fail without running objcopy.
+# prefix_archive_symbols archive symbol_prefix preserve_regex
+# Example: prefix_archive_symbols libfoo.a foo_private_ '^_?foo_'
+prefix_archive_symbols() (
+    set -o pipefail
+    local archive="$1" symbol_prefix="$2" preserve_regex="$3" archive_magic temp_dir
+    local symbol_map symbol_table section_table
+    [[ -f $archive && -n $symbol_prefix && -n $preserve_regex ]] || return 1
+    [[ $symbol_prefix != *[[:space:]]* ]] || return 1
+
+    # Thin archives reference external members, so an in-place rewrite is not self-contained.
+    archive_magic=$(head -c 7 "$archive") || return 1
+    if [[ $archive_magic != '!<arch>' ]]; then
+        printf 'prefix_archive_symbols: %s is not a regular archive\n' "$archive" >&2
+        return 1
+    fi
+
+    temp_dir=$(mktemp -d) || return 1
+    trap 'rm -rf "$temp_dir"' EXIT
+    symbol_map="$temp_dir/symbol-map"
+    symbol_table="$temp_dir/symbol-table"
+    section_table="$temp_dir/sections"
+
+    # Renaming the native symbol table does not update embedded GCC/LLVM LTO bytecode.
+    objdump -h "$archive" > "$section_table" || return 1
+    if grep -Eq '\.gnu\.lto_|\.llvmbc|\.llvmcmd' "$section_table"; then
+        printf 'prefix_archive_symbols: LTO archives are not supported: %s\n' "$archive" >&2
+        return 1
+    fi
+
+    # POSIX nm output supplies both names and types. Keep every row until END because
+    # a weak/import companion can appear after the ordinary-looking symbol it protects.
+    nm -P -g "$archive" > "$symbol_table" || return 1
+    awk -v preserve="$preserve_regex" -v prefix="$symbol_prefix" '
+        function protect(symbol) { protected[symbol] = 1 }
+        NF >= 2 && length($2) == 1 {
+            symbol = $1
+            type = $2
+            symbols[++count] = symbol
+            types[count] = type
+            # Include both definitions and references when checking generated names.
+            existing[symbol] = 1
+
+            # MinGW represents weak aliases as .weak.foo. + foo, and imports as
+            # __imp_foo + foo. Renaming only one half would break linker semantics.
+            if (symbol ~ /^\.weak\./) {
+                protect(symbol)
+                sub(/^\.weak\./, "", symbol)
+                sub(/\.$/, "", symbol)
+                protect(symbol)
+            } else if (symbol ~ /^__imp_/) {
+                protect(symbol)
+                sub(/^__imp_/, "", symbol)
+                protect(symbol)
+            } else if (type != "U" && type !~ /^[BDGRST]$/) {
+                protect(symbol)
+            }
+        }
+        END {
+            # Emit mappings only after the complete protection set is known.
+            for (i = 1; i <= count; i++) {
+                symbol = symbols[i]
+                type = types[i]
+                # U entries get rewritten by objcopy only when a matching definition
+                # produced a mapping. Other non-strong types stay untouched.
+                if (type == "U" || symbol in protected || type !~ /^[BDGRST]$/) continue
+                if (symbol ~ preserve || index(symbol, prefix) == 1) continue
+                target = prefix symbol
+                # Do not let a generated name capture an existing definition/reference.
+                if (target in existing) {
+                    printf "prefix_archive_symbols: target symbol already exists: %s\n", \
+                        target > "/dev/stderr"
+                    collision = 1
+                    continue
+                }
+                print symbol, target
+            }
+            exit collision
+        }' "$symbol_table" |
+        sort -u > "$symbol_map" ||
+        return 1
+    [[ -s $symbol_map ]] || return 0
+    objcopy --redefine-syms="$symbol_map" "$archive"
+)
+
 # do_dlltool lib.a a.def
 do_dlltool() (
     if dlltool --help | grep -q llvm; then
@@ -1903,6 +1994,76 @@ do_dlltool() (
         exec llvm-dlltool -k -l "$1" -d "$2"
     fi
     exec dlltool -k -y "$1" -d "$2" -A
+)
+
+# fix_impsyms "$MINGW_PREFIX/lib/libarchive.a" libarchive
+fix_impsyms() (
+    client_lib="$1"
+    pkg_name="$2"
+
+    # 1. Extract undefined __imp_ symbols from the client
+    mapfile -t undef_imps < <(nm -jug "$client_lib" | grep "__imp_" | sort -u)
+
+    if [[ -z "${undef_imps[*]}" ]]; then
+        return 0
+    fi
+
+    # 2. Resolve provider library paths from pkg-config
+    mapfile -t pkg_libs < <($PKG_CONFIG --libs --keep-system-libs "$pkg_name" 2> /dev/null | tr ' ' '\n' | grep -- '.')
+
+    search_paths=()
+    lib_names=()
+    provider_paths=()
+
+    for flag in "${pkg_libs[@]}"; do
+        case $flag in
+            -L*) search_paths+=("${flag#-L}") ;;
+            -l*) lib_names+=("${flag#-l}") ;;
+            *.a) provider_paths+=("$flag") ;;
+        esac
+    done
+    unset pkg_libs
+
+    # Resolve -l flags to actual .a paths
+    for name in "${lib_names[@]}"; do
+        for path in "${search_paths[@]}"; do
+            if [[ -f "$path/lib${name}.a" ]]; then
+                provider_paths+=("$path/lib${name}.a")
+            fi
+        done
+    done
+    unset search_paths lib_names
+
+    # 3. Iterate through providers and patch them
+    for provider in "${provider_paths[@]}"; do
+        # Get all global defined symbols in the provider
+        mapfile -t provider_defs < <(nm -jUg "$provider" | sort -u)
+
+        thunk_source=""
+        found_provider=false
+
+        for imp_sym in "${undef_imps[@]}"; do
+            base_sym="${imp_sym#__imp_}"
+
+            # Check if this provider defines the base symbol
+            # AND doesn't already have the __imp_ version
+            if [[ " ${provider_defs[*]} " =~ [[:space:]]${base_sym}[[:space:]] ]] && [[ ! " ${provider_defs[*]} " =~ [[:space:]]${imp_sym}[[:space:]] ]]; then
+                thunk_source+="extern void ${base_sym}(); void *${imp_sym} = &${base_sym};"$'\n'
+                found_provider=true
+            fi
+        done
+
+        if ! $found_provider; then
+            continue
+        fi
+
+        # Compile and inject
+        obj="thunk_$(basename "${provider%.a}" | sed 's/^lib//').o"
+        # shellcheck disable=SC2086
+        $CC -x c -c $CFLAGS - -o "$obj" <<<"$thunk_source"
+        $AR rcs "$provider" "$obj"
+        rm -f "$obj"
+    done
 )
 
 get_vs_prefix() {
@@ -2296,8 +2457,19 @@ grep_and_sed() {
     local sed_files=("$grep_file")
     [[ -n $1 ]] && sed_files=("$@")
 
-    grep -q -- "$grep_re" "$grep_file" &&
-        sed -ri -- "$sed_re" "${sed_files[@]}"
+    grep -Eq -- "$grep_re" "$grep_file" &&
+        sed -Ei -- "$sed_re" "${sed_files[@]}"
+}
+
+do_cmake_targets_error_to_warning() {
+    local targetsfile
+    if [[ "$1" == *".cmake" ]]; then
+        targetsfile="$MINGW_PREFIX/lib/cmake/$1"
+    else
+        targetsfile="$MINGW_PREFIX/lib/cmake/$1/$1Targets.cmake"
+    fi
+    sed -i 's;message(FATAL_ERROR "The imported target;message(WARNING "The imported target;' \
+        "${targetsfile}"
 }
 
 fix_cmake_crap_exports() {

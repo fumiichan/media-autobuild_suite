@@ -51,7 +51,7 @@ For information about the compiler environment see the wiki, there you also have
                 - needs non-GPL license
             - mbedtls (mingw-w64)
                 - preferred to gnutls if GPLv3 license is chosen
-            - gnutls (3.8.9)
+            - gnutls (3.8.13)
         - libass (git)
             - by default with DirectWrite backend
             - if --enable-fontconfig, fontconfig backend included
@@ -97,7 +97,6 @@ For information about the compiler environment see the wiki, there you also have
         - libdavs2 (git)
         - libflite (git)
         - libfribidi (git)
-        - libglslang (git)
         - libgme (git)
         - libilbc (git)
         - libjxl (git)
@@ -108,7 +107,7 @@ For information about the compiler environment see the wiki, there you also have
         - librist (git)
         - librtmp (git)
         - librubberband (git)
-        - libssh (broken)
+        - libssh (mingw-w64)
         - libsvthevc (git) (using non-upstream patch)
         - libsvtvp9 (git) (using non-upstream patch)
         - libtesseract (git)
@@ -171,7 +170,7 @@ For information about the compiler environment see the wiki, there you also have
         - Base build (ffmpegChoice=2 or 3)
             - ANGLE Headers (git)
                 - requires ANGLE shared libraries from somewhere else (i.e. Chrome, Firefox) for gpu-context=angle support
-            - lcms2 (mingw-w64)
+            - lcms2 (git)
             - libass (git)
             - libbluray (git)
                 - BD-J support requires installation of Java JDK
@@ -310,6 +309,11 @@ If there's some error during compilation follow these steps:
 `/build/media-suite_deps.sh`
 
 - This script contains the URLs for each git repo used by `build/media-suite_compile.sh`. These URLs can be appended with `#branch=BRANCH`, `#commit=COMMITHASH`, or `#tag=TAG` to build from a branch, commit, or tag respectively. They can also be replaced to build from forked repositories (For example, changing `SOURCE_REPO_SVTAV1=https://gitlab.com/AOMediaCodec/SVT-AV1.git` to `SOURCE_REPO_SVTAV1=https://github.com/gianni-rosato/svt-av1-psy.git`).
+
+`/build/media-suite_deps_extra.sh`
+
+- This file is meant for overriding URLS in `media-suite_deps.sh` or adding new variables that can be used in the extra scripts. It is sourced by `media-suite_compile.sh` and `media-suite_update.sh` if it exists.
+- This file is not meant to be checked in, and is meant to be created and edited by the user.
 
 `/build/ffmpeg_options.txt` & `/build/mpv_options.txt`
 

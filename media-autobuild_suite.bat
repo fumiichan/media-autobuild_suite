@@ -125,7 +125,7 @@ set ffmpeg_options_full=chromaprint decklink frei0r libaribb24 libbs2b libcaca ^
 libcdio libflite libfribidi libgme libilbc libsvthevc ^
 libsvtvp9 libkvazaar libmodplug librist librtmp librubberband #libssh ^
 libtesseract libxavs libzmq libzvbi openal libcodec2 ladspa #vapoursynth #liblensfun ^
-libglslang vulkan libdavs2 libxavs2 libuavs3d libplacebo libjxl libvvenc libvvdec liblc3 audiotoolbox ^
+vulkan libdavs2 libxavs2 libuavs3d libplacebo libjxl libvvenc libvvdec liblc3 audiotoolbox ^
 libsvtjpegxs
 
 :: options also available with the suite that add shared dependencies
@@ -278,11 +278,11 @@ if [0]==[%av1anINI%] (
     echo -------------------------------------------------------------------------------
     set /P buildav1an="Build av1an: "
 ) else (
-	if %av1anINI% GTR 2 (
-		set "buildav1an=2"
-	) else (
-		set buildav1an=%av1anINI%
-	)
+    if %av1anINI% GTR 2 (
+        set "buildav1an=2"
+    ) else (
+        set buildav1an=%av1anINI%
+    )
 )
 
 if "%buildav1an%"=="" GOTO av1an
@@ -1341,8 +1341,9 @@ if [0]==[%avs2INI%] (
     echo -------------------------------------------------------------------------------
     echo.
     echo. Build avs2 (Audio Video Coding Standard Gen2 encoder/decoder^)?
-    echo. 1 = Yes
+    echo. 1 = Yes (official davs2, 8-bit only^)
     echo. 2 = No
+    echo. 3 = Yes (unofficial davs2 fork with 10-bit support^)
     echo.
     echo. Binaries being built depends on "standalone=y" and are always static.
     echo.
@@ -1354,7 +1355,8 @@ if [0]==[%avs2INI%] (
 if "%buildavs2%"=="" GOTO avs2
 if %buildavs2%==1 set "avs2=y"
 if %buildavs2%==2 set "avs2=n"
-if %buildavs2% GTR 2 GOTO avs2
+if %buildavs2%==3 set "avs2=10bit"
+if %buildavs2% GTR 3 GOTO avs2
 if %deleteINI%==1 echo.avs2=^%buildavs2%>>%ini%
 
 :dovitool
@@ -1839,6 +1841,7 @@ if not [%removefstab%]==[no] (
         echo.%instdir%\build\ /build ntfs binary,posix=0,noacl,user 0 0
         echo.%instdir%\msys64\mingw32\ /mingw32 ntfs binary,posix=0,noacl,user 0 0
         echo.%instdir%\msys64\mingw64\ /mingw64 ntfs binary,posix=0,noacl,user 0 0
+        echo.%instdir%\msys64\ucrt64\ /ucrt64 ntfs binary,posix=0,noacl,user 0 0
         echo.%instdir%\msys64\clang64\ /clang64 ntfs binary,posix=0,noacl,user 0 0
         if "%build32%"=="yes" echo.%instdir%\local32\ /local32 ntfs binary,posix=0,noacl,user 0 0
         if "%build64%"=="yes" echo.%instdir%\local64\ /local64 ntfs binary,posix=0,noacl,user 0 0
@@ -2010,7 +2013,7 @@ set compileArgs=--cpuCount=%cpuCount% --build32=%build32% --build64=%build64% ^
     @REM --autouploadlogs=%autouploadlogs%
     set "noMintty=%noMintty%"
     if %build64%==yes (
-        if %CC%==clang ( set "MSYSTEM=CLANG64" ) else set "MSYSTEM=MINGW64"
+        if %CC%==clang ( set "MSYSTEM=CLANG64" ) else set "MSYSTEM=UCRT64"
     ) else (
         set "MSYSTEM=MINGW32"
     )
@@ -2054,10 +2057,12 @@ goto :EOF
 :writeProfile
 (
     echo.#!/usr/bin/bash
-    if %CC%==clang (
-        echo.MSYSTEM=CLANG%1
+    if %1==32 (
+        echo.MSYSTEM=MINGW32
+    ) else if %CC%==clang (
+        echo.MSYSTEM=CLANG64
     ) else (
-        echo.MSYSTEM=MINGW%1
+        echo.MSYSTEM=UCRT64
     )
     echo.source /etc/msystem
     echo.
@@ -2074,9 +2079,11 @@ goto :EOF
     if %CC%==clang (
         echo.export CC="ccache clang"
         echo.export CXX="ccache clang++"
+        echo.export AR="llvm-ar"
     ) else (
         echo.export CC="ccache gcc"
         echo.export CXX="ccache g++"
+        echo.export AR="gcc-ar"
     )
     echo.
     echo.CARCH="${MINGW_CHOST%%%%-*}"
@@ -2191,20 +2198,22 @@ goto :EOF
 :getmingw
 setlocal
 set found=0
-if %CC%==clang (
-    set "compiler=%instdir%\msys64\clang%1\bin\clang.exe"
-) else set "compiler=%instdir%\msys64\mingw%1\bin\gcc.exe"
+if %1==32 (
+    set "compiler=%instdir%\msys64\mingw32\bin\gcc.exe"
+) else if %CC%==clang (
+    set "compiler=%instdir%\msys64\clang64\bin\clang.exe"
+) else set "compiler=%instdir%\msys64\ucrt64\bin\gcc.exe"
 if exist %compiler% set found=1
 if %found%==1 GOTO :EOF
 echo.-------------------------------------------------------------------------------
 echo.install %1 bit compiler
 echo.-------------------------------------------------------------------------------
-if %CC%==clang (
+if "%1"=="32" (
+    set prefix=mingw-w64-i686-
+) else if %CC%==clang (
     set prefix=mingw-w64-clang-x86_64-
 ) else (
-    if "%1"=="32" (
-        set prefix=mingw-w64-i686-
-    ) else set prefix=mingw-w64-x86_64-
+    set prefix=mingw-w64-ucrt-x86_64-
 )
 (
     echo.printf '\033]0;install %1 bit compiler\007'
